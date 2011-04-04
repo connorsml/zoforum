@@ -6,19 +6,14 @@
     {% with m.rsc[id] as thread %}
         <nav id="zforum-menu">
             <ul>
-                <li><a href="/forum">{_ Forum Home _}</a></li>
-                <li><a href="{{thread.has_forum_category.page_url}}">{_ Back to _}&nbsp;{{thread.has_forum_category.title}}&nbsp;</a></li>
-                <li>Categories
-                    <ul id="category-menu">
+                <li class="zf-first"><a href="/forum">{_ Forum Home _}</a></li>
                     {% with m.search[{query cat='zforum_category' sort='-publication_start'}] as result %}
                         {% for cat_id in result %}
-                            <li>
-                                <a href="{{ m.rsc[cat_id].page_url}}">{{ m.rsc[cat_id].title}}</a>
+                            <li class="{% if forloop.last %}zf-last{% endif %}">
+                                <a href="{{ m.rsc[cat_id].page_url}}" class="{% ifequal q.id cat_id %} current {% endifequal %}">{{ m.rsc[cat_id].title}}</a>
                             </li>
                         {% endfor %}
                     {% endwith %}
-                    </ul>
-                  </li>
             </ul>
         </nav>
     
