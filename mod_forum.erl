@@ -86,6 +86,13 @@ handle_call(_Request, _From, State) ->
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
 handle_cast({{post_added, ThreadId, PostId}, Ctx}, State) ->
+     %% In here we update the has_unviewed forum posts for any users that are following this thread
+     %% perhaps later also send message to inbox or notification area 
+    {rsc_list, Followers} = m_rsc:p(ThreadId, zf_has_followers, Ctx),
+    F = fun(UserId, PostId) ->
+            {ok, _} = m_edge:insert(UserId, has_unviewed_forum_posts, PostId, Ctx)
+	end,
+    [ F(UserId, PostId) || UserId <- Followers ],
     {noreply, State};
 
 handle_cast(_Msg, State) ->
@@ -158,7 +165,7 @@ datamodel() ->
         [{zforum_thread, zforum_post}]},
        {is_fork_of,
         [{title, <<"Is Fork Of">>}],
-        [{zforum_thread, zforum_thread}]}
+        [{zforum_thread, zforum_post}]}
       ]
      },
      {resources,
@@ -249,14 +256,17 @@ event({submit, {addpost, [{cat_id, CatId}]}, _TriggerId, _TargetId}, Context) ->
 
 
 %Handle forking a thread
-event({submit, {addpost, [{cat_id, CatId}, {thread_id, OldThreadId}]}, _TriggerId, _TargetId}, Context) ->
+%% This is so that if a user wants to reply directly to a post rather than a thread, they can break this away from the current thread
+%% it will be come a stand-alone thread in the category, which may or may not be the same as the category if the last thread
+%% it could be tagged in the ui with some like """ "New Thread about Chelsea" was "Old Thread about Soccer" """
+event({submit, {addpost, [{cat_id, CatId}, {post_id, PostId}]}, _TriggerId, _TargetId}, Context) ->
     UserId = z_acl:user(Context),
     Title = z_context:get_q_validated("title", Context),
     Summary = z_context:get_q_validated("summary", Context),
     Body = z_context:get_q_validated("body", Context),
     case create_thread(Title, Summary, CatId, UserId, Context) of
         {ok, ThreadId} -> 
-            {ok, _} = m_edge:insert(ThreadId, is_fork_of, OldThreadId, Context),
+            {ok, _} = m_edge:insert(ThreadId, is_fork_of, PostId, Context),
             create_post(Body, ThreadId, UserId, Context);
     	{error, _Message} -> Context
     end;
