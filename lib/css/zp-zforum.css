@@ -1,0 +1,19 @@
+#zforum-menu ul li {
+    display: inline;
+    padding-left: 10px;
+    padding-right: 10px;
+    border-right: 1px solid #0000FF;
+}
+
+#zforum-menu ul li.zf-first {
+    padding-left: 0;
+}
+
+#zforum-menu ul li.zf-last {
+    border-right: 0;
+    padding-right: 10px;
+}
+
+#zforum-menu ul li a.current {
+    background: #999;
+}
