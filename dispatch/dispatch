@@ -1,5 +1,5 @@
 [
-    {zforum_thread,    ["forum", "thread", id, slug],    resource_page,  	     [ {template, "zforum_thread.tpl"}, {cat, zforum_thread} ]},
+    {zforum_thread,    ["forum", "thread", id, slug],    resource_zforum,  	     [ {template, "zforum_thread.tpl"}, {cat, zforum_thread} ]},
     {zforum_category,  ["forum", "category", id, slug],  resource_template,      [ {template, "zforum.tpl"}, {cat, zforum_category} ]},
     {forum,            ["forum"],                        resource_template,      [ {template, "zforum.tpl"} ]}
 ].

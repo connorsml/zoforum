@@ -25,11 +25,14 @@
 
 -include_lib("resource_html.hrl").
 
+html(Context) ->
+    resource_page:html(Context).
+
 %Handle adding a new forum post
 event({submit, {addpost, [{thread_id, ThreadId}]}, _TriggerId, _TargetId}, Context) ->
     UserId = z_acl:user(Context),
     Body = z_context:get_q_validated("body", Context),
-    {ok, PostId} = create_post(Body, ThreadId, UserId, Context),
+    {ok, PostId} = m_zforum:create_post(Body, ThreadId, UserId, Context),
     PostTemplate = z_template:render("_zforum_post.tpl", [{post_id, PostId}], Context),
     z_render:insert_bottom("zforum_posts", PostTemplate, Context);
 
@@ -41,7 +44,7 @@ event({submit, {addpost, [{cat_id, CatId}]}, _TriggerId, _TargetId}, Context) ->
     Body = z_context:get_q_validated("body", Context),
     case m_zforum:create_thread(Title, Summary, CatId, UserId, Context) of
         {ok, ThreadId} -> 
-            {ok, _PostId} = create_post(Body, ThreadId, UserId, Context),
+            {ok, _PostId} = m_zforum:create_post(Body, ThreadId, UserId, Context),
             ThreadSummaryTemplate = z_template:render("_zforum_thread_summary.tpl", [{thread_id, ThreadId}], Context),
             z_render:insert_top("zf_forum_threads", ThreadSummaryTemplate, Context);
     	{error, _Message} -> Context
@@ -57,7 +60,7 @@ event({submit, {addpost, [{cat_id, CatId}, {post_id, PostId}]}, _TriggerId, _Tar
     Title = z_context:get_q_validated("title", Context),
     Summary = z_context:get_q_validated("summary", Context),
     Body = z_context:get_q_validated("body", Context),
-    case create_thread(Title, Summary, CatId, UserId, Context) of
+    case m_zforum:create_thread(Title, Summary, CatId, UserId, Context) of
         {ok, ThreadId} -> 
             {ok, _} = m_edge:insert(ThreadId, is_fork_of, PostId, Context),
             m_zforum:create_post(Body, ThreadId, UserId, Context);
