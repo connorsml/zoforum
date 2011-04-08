@@ -1,7 +1,7 @@
 {% with m.acl.user as user_id %}
     {% if user_id %}
         {% if thread_id %}
-            {% wire id="addpost" type="submit" postback={addpost thread_id=thread_id } delegate="mod_forum" %}
+            {% wire id="addpost" type="submit" postback={addpost thread_id=thread_id } delegate="mod_zforum" %}
             <form id="addpost" method="post" action="postback">
                 <div>
                     <div class="form-item">
@@ -15,7 +15,7 @@
                 </div>
             </form>
         {% else %}
-            {% wire id="addpost" type="submit" postback={addpost cat_id=cat_id } delegate="mod_forum" %}
+            {% wire id="addpost" type="submit" postback={addpost cat_id=cat_id } delegate="mod_zforum" %}
             <form id="addpost" method="post" action="postback">
                 <div>
             	    <div class="form-item">

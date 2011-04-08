@@ -17,6 +17,12 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 
+%%
+%% 2011-04-08 Dmitrii Dimandt
+%%            Modified to conform to the newer module structure (no explicit gen_servers)
+%%            TODO: Where do we put subscriptions to notifications? 
+%%
+
 -module(mod_zforum).
 -author("Michael Connors <michael@bring42.net>").
 
@@ -24,107 +30,83 @@
 -mod_description("A simple forum for Zotonic").
 -mod_prio(500).
 
--behaviour(gen_server).
-
-%% API
--export([start_link/1]).
+-include_lib("zotonic.hrl").
 
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
+-export([init/1, event/2]).
 
 -record(state, {}).
 
-%%====================================================================
-%% API
-%%====================================================================
-%%--------------------------------------------------------------------
-%% Function: start_link() -> {ok,Pid} | ignore | {error,Error}
-%% Description: Starts the server
-%%--------------------------------------------------------------------
-start_link(Args) when is_list(Args) ->
-    gen_server:start_link(?MODULE, Args, []).
+init(Context) ->
+    z_datamodel:manage(?MODULE, datamodel(), Context).
 
-%%====================================================================
-%% gen_server callbacks
-%%====================================================================
-
-%%--------------------------------------------------------------------
-%% Function: init(Args) -> {ok, State} |
-%%                         {ok, State, Timeout} |
-%%                         ignore               |
-%%                         {stop, Reason}
-%% Description: Initiates the server
-%%--------------------------------------------------------------------
-init(Args) ->
-    process_flag(trap_exit, true),
-    {context, Context} = proplists:lookup(context, Args),
-    z_datamodel:manage(?MODULE, datamodel(), Context),
-    z_notifier:observe(post_added, self(), Context),
-    {ok, #state{}}.
-
-%%--------------------------------------------------------------------
-%% Function: %% handle_call(Request, From, State) -> {reply, Reply, State} |
-%%                                      {reply, Reply, State, Timeout} |
-%%                                      {noreply, State} |
-%%                                      {noreply, State, Timeout} |
-%%                                      {stop, Reason, Reply, State} |
-%%                                      {stop, Reason, State}
-%% Description: Handling call messages
-%%--------------------------------------------------------------------
-handle_call(_Request, _From, State) ->
-    Reply = ok,
-    {reply, Reply, State}.
-
-%%--------------------------------------------------------------------
-%% Function: handle_cast(Msg, State) -> {noreply, State} |
-%%                                      {noreply, State, Timeout} |
-%%                                      {stop, Reason, State}
-%% Description: Handling cast messages
-%%--------------------------------------------------------------------
-handle_cast({{post_added, ThreadId, PostId}, Ctx}, State) ->
+%
+% TODO: Move these casts to... Where?
+%
+%handle_cast({{post_added, ThreadId, PostId}, Ctx}, State) ->
      %% In here we update the has_unviewed forum posts for any users that are following this thread
      %% perhaps later also send message to inbox or notification area 
-    {rsc_list, Followers} = m_rsc:p(ThreadId, zf_has_followers, Ctx),
-    F = fun(UserId, PostId) ->
-            {ok, _} = m_edge:insert(UserId, has_unviewed_forum_posts, PostId, Ctx)
-	end,
-    [ F(UserId, PostId) || UserId <- Followers ],
-    {noreply, State};
+%    {rsc_list, Followers} = m_rsc:p(ThreadId, zf_has_followers, Ctx),
+%    F = fun(UserId, PostId) ->
+%            {ok, _} = m_edge:insert(UserId, has_unviewed_forum_posts, PostId, Ctx)
+%	end,
+%    [ F(UserId, PostId) || UserId <- Followers ],
+%    {noreply, State};
+%
+%handle_cast(_Msg, State) ->
+%    {noreply, State}.
 
-handle_cast(_Msg, State) ->
-    {noreply, State}.
 
-%%--------------------------------------------------------------------
-%% Function: handle_info(Info, State) -> {noreply, State} |
-%%                                       {noreply, State, Timeout} |
-%%                                       {stop, Reason, State}
-%% Description: Handling all non call/cast messages
-%%--------------------------------------------------------------------
-handle_info(_Info, State) ->
-    {noreply, State}.
+%Handle adding a new forum post
+event({submit, {addpost, [{thread_id, ThreadId}]}, _TriggerId, _TargetId}, Context) ->
+    UserId = z_acl:user(Context),
+    Body = z_context:get_q_validated("body", Context),
+    {ok, PostId} = m_zforum:create_post(Body, ThreadId, UserId, Context),
+    PostTemplate = z_template:render("_zforum_post.tpl", [{post_id, PostId}], Context),
+    z_render:insert_bottom("zforum_posts", PostTemplate, Context);
 
-%%--------------------------------------------------------------------
-%% Function: terminate(Reason, State) -> void()
-%% Description: This function is called by a gen_server when it is about to
-%% terminate. It should be the opposite of Module:init/1 and do any necessary
-%% cleaning up. When it returns, the gen_server terminates with Reason.
-%% The return value is ignored.
-%%--------------------------------------------------------------------
-terminate(_Reason, _State) ->
-    ok.
+%Handle adding a new forum thread & post
+event({submit, {addpost, [{cat_id, CatId}]}, _TriggerId, _TargetId}, Context) ->
+    UserId = z_acl:user(Context),
+    Title = z_context:get_q_validated("title", Context),
+    Summary = z_context:get_q_validated("summary", Context),
+    Body = z_context:get_q_validated("body", Context),
+    case m_zforum:create_thread(Title, Summary, CatId, UserId, Context) of
+        {ok, ThreadId} -> 
+            {ok, _PostId} = m_zforum:create_post(Body, ThreadId, UserId, Context),
+            ThreadSummaryTemplate = z_template:render("_zforum_thread_summary.tpl", [{thread_id, ThreadId}], Context),
+            z_render:insert_top("zf_forum_threads", ThreadSummaryTemplate, Context);
+    	{error, _Message} -> Context
+    end;
 
-%%--------------------------------------------------------------------
-%% Func: code_change(OldVsn, State, Extra) -> {ok, NewState}
-%% Description: Convert process state when code is changed
-%%--------------------------------------------------------------------
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
 
-%%--------------------------------------------------------------------
-%%% Internal functions
-%%--------------------------------------------------------------------
+%Handle forking a thread
+%% This is so that if a user wants to reply directly to a post rather than a thread, they can break this away from the current thread
+%% it will be come a stand-alone thread in the category, which may or may not be the same as the category if the last thread
+%% it could be tagged in the ui with some like """ "New Thread about Chelsea" was "Old Thread about Soccer" """
+event({submit, {addpost, [{cat_id, CatId}, {post_id, PostId}]}, _TriggerId, _TargetId}, Context) ->
+    UserId = z_acl:user(Context),
+    Title = z_context:get_q_validated("title", Context),
+    Summary = z_context:get_q_validated("summary", Context),
+    Body = z_context:get_q_validated("body", Context),
+    case m_zforum:create_thread(Title, Summary, CatId, UserId, Context) of
+        {ok, ThreadId} -> 
+            {ok, _} = m_edge:insert(ThreadId, is_fork_of, PostId, Context),
+            m_zforum:create_post(Body, ThreadId, UserId, Context);
+    	{error, _Message} -> Context
+    end;
 
+%Handle changing a forum post
+event({submit, {editpost, _Args}, _TriggerId, _TargetId}, Context) ->
+    %Title = z_context:get_q_validated("title", Context),
+    %Body = z_context:get_q_validated("body", Context),
+    %Id = z_context:get_q_validated("post_id", Context),
+    Context;
+
+%Handle deleting a forum post
+event({submit, {deletepost, _Args}, _TriggerId, _TargetId}, Context) ->
+    %Id = z_context:get_q_validated("post_id", Context),
+    Context.
 
 %%
 %% The datamodel that is used in this module.
