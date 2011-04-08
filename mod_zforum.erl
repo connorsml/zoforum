@@ -17,12 +17,6 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 
-%%
-%% 2011-04-08 Dmitrii Dimandt
-%%            Modified to conform to the newer module structure (no explicit gen_servers)
-%%            TODO: Where do we put subscriptions to notifications? 
-%%
-
 -module(mod_zforum).
 -author("Michael Connors <michael@bring42.net>").
 
@@ -30,32 +24,52 @@
 -mod_description("A simple forum for Zotonic").
 -mod_prio(500).
 
+-behaviour(gen_server).
+
 -include_lib("zotonic.hrl").
 
 %% gen_server callbacks
--export([init/1, event/2]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+-export([start_link/1]).
 
--record(state, {}).
+-export([event/2]).
 
-init(Context) ->
-    z_datamodel:manage(?MODULE, datamodel(), Context).
+-record(state, {context}).
 
-%
-% TODO: Move these casts to... Where?
-%
-%handle_cast({{post_added, ThreadId, PostId}, Ctx}, State) ->
+start_link(Args) when is_list(Args) ->
+    gen_server:start_link(?MODULE, Args, []).
+
+init(Args) ->
+    process_flag(trap_exit, true),
+    {context, Context} = proplists:lookup(context, Args),
+    z_datamodel:manage(?MODULE, datamodel(), Context),
+    {ok, #state{context=z_context:new(Context)}}.
+
+
+handle_call(Message, _From, State) ->
+    {stop, {unknown_call, Message}, State}.
+
+handle_cast({{post_added, ThreadId, PostId}, Ctx}, State) ->
      %% In here we update the has_unviewed forum posts for any users that are following this thread
      %% perhaps later also send message to inbox or notification area 
-%    {rsc_list, Followers} = m_rsc:p(ThreadId, zf_has_followers, Ctx),
-%    F = fun(UserId, PostId) ->
-%            {ok, _} = m_edge:insert(UserId, has_unviewed_forum_posts, PostId, Ctx)
-%	end,
-%    [ F(UserId, PostId) || UserId <- Followers ],
-%    {noreply, State};
-%
-%handle_cast(_Msg, State) ->
-%    {noreply, State}.
+    {rsc_list, Followers} = m_rsc:p(ThreadId, zf_has_followers, Ctx),
+    F = fun(UserId, PostId) ->
+            {ok, _} = m_edge:insert(UserId, has_unviewed_forum_posts, PostId, Ctx)
+	end,
+    [ F(UserId, PostId) || UserId <- Followers ],
+    {noreply, State};
 
+handle_cast(_Msg, State) ->
+    {noreply, State}.
+
+handle_info(_Info, State) ->
+    {noreply, State}.
+
+terminate(_Reason, _State) ->
+    ok.
+
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
 
 %Handle adding a new forum post
 event({submit, {addpost, [{thread_id, ThreadId}]}, _TriggerId, _TargetId}, Context) ->
