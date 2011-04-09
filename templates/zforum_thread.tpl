@@ -10,7 +10,7 @@
                     {% with m.search[{query cat='zforum_category' sort='-publication_start'}] as result %}
                         {% for cat_id in result %}
                             <li class="{% if forloop.last %}zf-last{% endif %}">
-                                <a href="{{ m.rsc[cat_id].page_url}}" class="{% ifequal q.id cat_id %} current {% endifequal %}">{{ m.rsc[cat_id].title}}</a>
+                                <a href="{{ m.rsc[cat_id].page_url}}" class="{% ifequal q.id cat_id %} current {% endifequal %}">{{ m.rsc[cat_id].title }}</a>
                             </li>
                         {% endfor %}
                     {% endwith %}

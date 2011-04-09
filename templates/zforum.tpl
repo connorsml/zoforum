@@ -41,7 +41,7 @@
             {% with m.search[{query cat='zforum_post' sort='-publication_start' pagelen=5}] as result %}
                 {% for post_id in result %}
                     <li>
-                        <a href="{{ m.rsc[post_id].s.has_forum_post.page_url}}">{{ m.rsc[post_id].title}}</a>
+                        <a href="{{ m.rsc[post_id].s.has_forum_post.page_url}}">{{ m.rsc[post_id].title }}</a>
                     </li>
                 {% endfor %}
             {% endwith %}

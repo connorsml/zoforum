@@ -79,7 +79,7 @@ values(RD) ->
     ].
 
 
-create_forum(Title, Summary, UserId, Context) ->
+create_forum(_Title, _Summary, _UserId, _Context) ->
     %% TODO: support multiple forums
     ok.
 
@@ -101,8 +101,8 @@ create_thread(Title, Summary, ForumCategoryId, UserId, Context) ->
     end.
 
 create_post(Body, ThreadId, UserId, Context) ->
-    Title = m_rsc:p(ThreadId, title, Context),
-    Summary = m_rsc:p(ThreadId, summary, Context),
+    Title = z_html:unescape(m_rsc:p(ThreadId, title, Context)),
+    Summary = z_html:unescape(m_rsc:p(ThreadId, summary, Context)),
     CategoryId = m_category:name_to_id_check(zforum_post, Context),
     Props = [
           {category_id, CategoryId},
