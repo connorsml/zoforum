@@ -1,4 +1,3 @@
-{% with m.acl.user as user_id %}
     {% if user_id %}
         {% if thread_id %}
             {% wire id="addpost" type="submit" postback={addpost thread_id=thread_id } delegate="mod_zforum" %}
@@ -42,4 +41,4 @@
     {% else %}
         <p>{_ Login or Signup if you would like to post in this forum. _}</p>
     {% endif %}
-{% endwith %}
+
