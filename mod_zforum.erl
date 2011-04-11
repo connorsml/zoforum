@@ -111,6 +111,12 @@ event({submit, {addpost, [{cat_id, CatId}, {post_id, PostId}]}, _TriggerId, _Tar
     	{error, _Message} -> Context
     end;
 
+%Handle viewing a post, remove unviewed marker
+event({postback, {view, [{post_id, PostId}]}, _TriggerId, _TargetId}, Context) ->
+    UserId = z_acl:user(Context),
+    {ok, _} = m_edge:delete(UserId, has_unviewed_forum_posts, PostId, Context),
+    Context;
+
 %Handle changing a forum post
 event({submit, {editpost, _Args}, _TriggerId, _TargetId}, Context) ->
     %Title = z_context:get_q_validated("title", Context),
