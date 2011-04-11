@@ -29,7 +29,7 @@
                     {% endfor %}
                     </ul>
                 </section>
-                {% include "_zforum_form.tpl" thread_id=thread.id user_id=user%} 
+                {% include "_zforum_form.tpl" thread_id=thread.id user=user%} 
             </div>
         {% endwith %}
     {% endwith %}

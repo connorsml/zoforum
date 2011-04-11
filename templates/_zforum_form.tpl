@@ -1,4 +1,4 @@
-    {% if user_id %}
+    {% if user %}
         {% if thread_id %}
             {% wire id="addpost" type="submit" postback={addpost thread_id=thread_id } delegate="mod_zforum" %}
             <form id="addpost" method="post" action="postback">
