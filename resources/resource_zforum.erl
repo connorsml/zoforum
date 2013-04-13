@@ -19,7 +19,7 @@
 -module(resource_zforum).
 -author("Michael Connors <michael@bring42.net>, Dmitrii Dimandt <dmitri@dmitriid.com>").
 
--include_lib("resource_html.hrl").
+-include_lib("controller_html_helper.hrl").
 
 html(Context) ->
     resource_page:html(Context).
